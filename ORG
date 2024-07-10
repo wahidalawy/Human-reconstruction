@@ -1,0 +1,93 @@
+import cv2
+import numpy as np
+from tensorflow.keras.models import load_model
+import dlib
+# مسیر مدل تشخیص احساسات
+model_path = 'emotion_detection_model.h5'
+# خواندن مدل
+model = load_model(model_path)
+# مدل تشخیص چهره
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+# تشخیص احساسات و تکان دادن لب
+def detect_emotion(frame, emotions, lips_movement):
+    # پیش‌پردازش تصویر
+    face = cv2.resize(frame, (48, 48))
+    face = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
+    face = np.expand_dims(face, axis=0)
+    face = np.expand_dims(face, axis=3)
+
+    # تشخیص احساسات
+    predicted_emotions = model.predict(face)
+    emotion_label = emotions[np.argmax(predicted_emotions)]
+
+    # تکان دادن لب
+    if emotion_label == 'Happiness':
+        lips_movement = True
+    else:
+        lips_movement = False
+
+    return emotion_label, lips_movement
+
+# شروع دوربین
+video = cv2.VideoCapture(0)
+
+# اندازه فریم‌های دوربین
+width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+# تعریف توضیحات احساسات
+emotions = {0: 'Angry', 1: 'Disgust', 2: 'Fear', 3: 'Happy', 4: 'Sad', 5: 'Surprise', 6: 'Neutral'}
+
+# نمایش تصویر زنده
+while True:
+    ret, frame = video.read()
+    if not ret:
+        break
+
+    # تشخیص چهره‌ها در فریم
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = detector(gray)
+
+    # محاسبه نقاط مرزی چهره
+    for face in faces:
+        landmarks = predictor(gray, face)
+        landmarks_points = []
+        for n in range(68):
+            x = landmarks.part(n).x
+            y = landmarks.part(n).y
+            landmarks_points.append((x, y))
+
+        # پیدا کردن محدوده چهره با استفاده از نقاط مرزی چهره
+        x1, y1 = landmarks_points[0]
+        x2, y2 = landmarks_points[16]
+
+        # ابعاد چهره
+        w = x2 - x1
+        h = y2 - y1
+
+        # برش تصویر از چهره
+        face_image = frame[y1:y2, x1:x2].copy()
+
+        # تشخیص احساسات و تکان دادن لب
+        emotion_label, lips_movement = detect_emotion(face_image, emotions, lips_movement=False)
+
+        # اگر احساس خوشحالی بود، لب‌ها را تکان دهید
+        if lips_movement:
+            # اضافه کردن افکت تکان دادن لب
+            # اینجا باید کد مربوط به تکان دادن لب اضافه شود
+            pass
+
+        # انتقال چهره دوم به مکان چهره اول
+        # اینجا باید کد مربوط به انتقال چهره دوم به مکان چهره اول اضافه شود
+
+    # نمایش تصویر زنده
+    cv2.imshow('Live Video', frame)
+
+    # خروج از حلقه با فشردن دکمه ESC
+    if cv2.waitKey(1) == 27:
+        break
+
+# بستن دوربین
+video.release()
+cv2.destroyAllWindows()
